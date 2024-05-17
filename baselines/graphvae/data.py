@@ -5,9 +5,9 @@ import torch
 class GraphAdjSampler(torch.utils.data.Dataset):
     def __init__(self, G_list, max_num_nodes, features='id'):
         self.max_num_nodes = max_num_nodes
-        self.adj_all = []
+        self.adj_all = []           # list of adjacency matricies (which are 2d lists)
         self.len_all = []
-        self.feature_all = []
+        self.feature_all = []       # list of features
 
         for G in G_list:
             adj = nx.to_numpy_matrix(G)
@@ -15,9 +15,9 @@ class GraphAdjSampler(torch.utils.data.Dataset):
             self.adj_all.append(
                     np.asarray(adj) + np.identity(G.number_of_nodes()))
             self.len_all.append(G.number_of_nodes())
-            if features == 'id':
+            if features == 'id':        # features is just the identity matrix.
                 self.feature_all.append(np.identity(max_num_nodes))
-            elif features == 'deg':
+            elif features == 'deg':         # features is the degree of a given node.
                 degs = np.sum(np.array(adj), 1)
                 degs = np.expand_dims(np.pad(degs, [0, max_num_nodes - G.number_of_nodes()], 0),
                                       axis=1)

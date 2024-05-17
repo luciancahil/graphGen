@@ -25,12 +25,11 @@ class GraphVAE(nn.Module):
         self.conv1 = model.GraphConv(input_dim=input_dim, output_dim=hidden_dim)
         self.bn1 = nn.BatchNorm1d(input_dim)
         self.conv2 = model.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim)
-        self.bn2 = nn.BatchNorm1d(input_dim)
         self.act = nn.ReLU()
+        print("Hidden: " + str(hidden_dim))
 
         output_dim = max_num_nodes * (max_num_nodes + 1) // 2
-        #self.vae = model.MLP_VAE_plain(hidden_dim, latent_dim, output_dim)
-        self.vae = model.MLP_VAE_plain(input_dim * input_dim, latent_dim, output_dim)
+        self.vae = model.MLP_VAE_plain(hidden_dim, latent_dim, output_dim)
         #self.feature_mlp = model.MLP_plain(latent_dim, latent_dim, output_dim)
 
         self.max_num_nodes = max_num_nodes
@@ -59,38 +58,41 @@ class GraphVAE(nn.Module):
 
     def edge_similarity_matrix(self, adj, adj_recon, matching_features,
                 matching_features_recon, sim_func):
-        S = torch.zeros(self.max_num_nodes, self.max_num_nodes,
-                        self.max_num_nodes, self.max_num_nodes)
-        for i in range(self.max_num_nodes):
-            for j in range(self.max_num_nodes):
-                if i == j:
-                    for a in range(self.max_num_nodes):
-                        S[i, i, a, a] = adj[i, i] * adj_recon[a, a] * \
-                                        sim_func(matching_features[i], matching_features_recon[a])
-                        # with feature not implemented
-                        # if input_features is not None:
-                else:
-                    for a in range(self.max_num_nodes):
-                        for b in range(self.max_num_nodes):
-                            if b == a:
-                                continue
-                            S[i, j, a, b] = adj[i, j] * adj[i, i] * adj[j, j] * \
-                                            adj_recon[a, b] * adj_recon[a, a] * adj_recon[b, b]
+        S = torch.zeros(self.max_num_nodes, self.max_num_nodes, self.max_num_nodes, self.max_num_nodes)
+        
+        # print("Hello!")
+        # for i in range(self.max_num_nodes):
+        #     for j in range(self.max_num_nodes):
+        #         print(i)
+        #         print(j)
+        #         if i == j:
+        #             for a in range(self.max_num_nodes):
+        #                 S[i, i, a, a] = adj[i, i] * adj_recon[a, a] * \
+        #                                 sim_func(matching_features[i], matching_features_recon[a])
+        #                 # with feature not implemented
+        #                 # if input_features is not None:
+        #         else:
+        #             for a in range(self.max_num_nodes):
+        #                 for b in range(self.max_num_nodes):
+        #                     if b == a:
+        #                         continue
+        #                     S[i, j, a, b] = adj[i, j] * adj[i, i] * adj[j, j] * \
+        #                                     adj_recon[a, b] * adj_recon[a, a] * adj_recon[b, b]
         return S
 
     def mpm(self, x_init, S, max_iters=50):
         x = x_init
-        for it in range(max_iters):
-            x_new = torch.zeros(self.max_num_nodes, self.max_num_nodes)
-            for i in range(self.max_num_nodes):
-                for a in range(self.max_num_nodes):
-                    x_new[i, a] = x[i, a] * S[i, i, a, a]
-                    pooled = [torch.max(x[j, :] * S[i, j, a, :])
-                              for j in range(self.max_num_nodes) if j != i]
-                    neigh_sim = sum(pooled)
-                    x_new[i, a] += neigh_sim
-            norm = torch.norm(x_new)
-            x = x_new / norm
+        # for it in range(max_iters):
+        #     x_new = torch.zeros(self.max_num_nodes, self.max_num_nodes)
+        #     for i in range(self.max_num_nodes):
+        #         for a in range(self.max_num_nodes):
+        #             x_new[i, a] = x[i, a] * S[i, i, a, a]
+        #             pooled = [torch.max(x[j, :] * S[i, j, a, :])
+        #                       for j in range(self.max_num_nodes) if j != i]
+        #             neigh_sim = sum(pooled)
+        #             x_new[i, a] += neigh_sim
+        #     norm = torch.norm(x_new)
+        #     x = x_new / norm
         return x 
 
     def deg_feature_similarity(self, f1, f2):
@@ -116,15 +118,16 @@ class GraphVAE(nn.Module):
         return out
 
     def forward(self, input_features, adj):
-        x = self.conv1(input_features, adj)
+        x = input_features.permute(0, 2, 1)  # Change to [batch_size, num_features, sequence_length]
         x = self.bn1(x)
+        x = x.permute(0, 2, 1)  # Change to [batch_size, sequence_length, num_features]
+        x = self.conv1(x, adj)
         x = self.act(x)
         x = self.conv2(x, adj)
-        x = self.bn2(x)
 
         # pool over all nodes 
-        #graph_h = self.pool_graph(x)
-        graph_h = input_features.view(-1, self.max_num_nodes * self.max_num_nodes)
+        graph_h = self.pool_graph(x)
+        # graph_h = input_features.view(-1, self.max_num_nodes * self.max_num_nodes)
         # vae
         h_decode, z_mu, z_lsgms = self.vae(graph_h)
         out = F.sigmoid(h_decode)
@@ -135,17 +138,22 @@ class GraphVAE(nn.Module):
         # set matching features be degree
         out_features = torch.sum(recon_adj_tensor, 1)
 
+
         adj_data = adj.cpu().data[0]
         adj_features = torch.sum(adj_data, 1)
 
+        # fix this
         S = self.edge_similarity_matrix(adj_data, recon_adj_tensor, adj_features, out_features,
                 self.deg_feature_similarity)
+        
+
 
         # initialization strategies
         init_corr = 1 / self.max_num_nodes
         init_assignment = torch.ones(self.max_num_nodes, self.max_num_nodes) * init_corr
         #init_assignment = torch.FloatTensor(4, 4)
         #init.uniform(init_assignment)
+        # fix this
         assignment = self.mpm(init_assignment, S)
         #print('Assignment: ', assignment)
 

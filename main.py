@@ -26,12 +26,15 @@ LR_milestones = [500, 1000]
 
 def build_model(args, max_num_nodes):
     out_dim = max_num_nodes * (max_num_nodes + 1) // 2
+    print("TYPE")
+    print(args.feature_type == 'struct')
     if args.feature_type == 'id':
         input_dim = max_num_nodes
     elif args.feature_type == 'deg':
         input_dim = 1
     elif args.feature_type == 'struct':
         input_dim = 2
+    print(input_dim)
     model = GraphVAE(input_dim, 64, 256, max_num_nodes)
     return model
 
@@ -41,13 +44,14 @@ def train(args, dataloader, model):
     scheduler = MultiStepLR(optimizer, milestones=LR_milestones, gamma=args.lr)
 
     model.train()
-    for epoch in range(5000):
+    for epoch in range(500):
         for batch_idx, data in enumerate(dataloader):
             model.zero_grad()
             features = data['features'].float()
             adj_input = data['adj'].float()
 
             features = Variable(features).to(device)
+            print(features.size())
             adj_input = Variable(adj_input).to(device)
             
             loss = model(features, adj_input)
@@ -76,8 +80,8 @@ def arg_parse():
     parser.add_argument('--feature', dest='feature_type',
             help='Feature used for encoder. Can be: id, deg')
 
-    parser.set_defaults(dataset='grid',
-                        feature_type='id',
+    parser.set_defaults(dataset='enzymes',
+                        feature_type='struct',
                         lr=0.001,
                         batch_size=1,
                         num_workers=1,
@@ -93,6 +97,7 @@ def main():
 
     if prog_args.dataset == 'enzymes':
         graphs= data.Graph_load_batch(min_num_nodes=10, name='ENZYMES')
+        print("Here3")
         num_graphs_raw = len(graphs)
     elif prog_args.dataset == 'grid':
         graphs = []
@@ -127,6 +132,7 @@ def main():
             dataset, 
             batch_size=prog_args.batch_size, 
             num_workers=prog_args.num_workers)
+    print(prog_args)
     model = build_model(prog_args, max_num_nodes).to(device)
     train(prog_args, dataset_loader, model)
 
