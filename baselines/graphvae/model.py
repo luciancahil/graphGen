@@ -209,5 +209,5 @@ class GraphVAE(nn.Module):
         print('diff: ', adj_recon_loss)
 
     def adj_recon_loss(self, adj_truth, adj_pred):
-        return F.binary_cross_entropy(adj_truth, adj_pred)
+        return F.binary_cross_entropy(adj_truth, adj_pred.detach())
 
