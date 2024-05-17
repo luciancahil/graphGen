@@ -153,7 +153,7 @@ class GraphVAE(nn.Module):
         #adj_permuted = self.permute_adj(adj_data, row_ind, col_ind)
         adj_permuted = adj_data
         adj_vectorized = adj_permuted[torch.triu(torch.ones(self.max_num_nodes,self.max_num_nodes) )== 1].squeeze_()
-        adj_vectorized_var = Variable(adj_vectorized).cuda()
+        adj_vectorized_var = Variable(adj_vectorized).to(device)
 
         #print(adj)
         #print('permuted: ', adj_permuted)
