@@ -46,7 +46,11 @@ class GraphVAE(nn.Module):
     def recover_adj_lower(self, l):
         # NOTE: Assumes 1 per minibatch
         adj = torch.zeros(self.max_num_nodes, self.max_num_nodes)
-        adj[torch.triu(torch.ones(self.max_num_nodes, self.max_num_nodes)) == 1] = l
+        index = 0
+        for row in range(adj.size(0)):  # adj.size(0) gives the number of rows
+            for col in range(row, adj.size(1)):  # adj.size(1) gives the number of columns
+                adj[row][col] = l[0][index]
+                index += 1
         return adj
 
     def recover_full_adj_from_lower(self, lower):
@@ -112,11 +116,11 @@ class GraphVAE(nn.Module):
         return out
 
     def forward(self, input_features, adj):
-        #x = self.conv1(input_features, adj)
-        #x = self.bn1(x)
-        #x = self.act(x)
-        #x = self.conv2(x, adj)
-        #x = self.bn2(x)
+        x = self.conv1(input_features, adj)
+        x = self.bn1(x)
+        x = self.act(x)
+        x = self.conv2(x, adj)
+        x = self.bn2(x)
 
         # pool over all nodes 
         #graph_h = self.pool_graph(x)
