@@ -11,6 +11,7 @@ import torch.nn.init as init
 
 import model
 
+device = torch.device("cpu")  # or "cuda" if you have a GPU
 
 class GraphVAE(nn.Module):
     def __init__(self, input_dim, hidden_dim, latent_dim, max_num_nodes, pool='sum'):
