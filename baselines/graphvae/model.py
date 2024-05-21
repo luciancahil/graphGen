@@ -26,7 +26,6 @@ class GraphVAE(nn.Module):
         self.bn1 = nn.BatchNorm1d(input_dim)
         self.conv2 = model.GraphConv(input_dim=hidden_dim, output_dim=hidden_dim)
         self.act = nn.ReLU()
-        print("Hidden: " + str(hidden_dim))
 
         output_dim = max_num_nodes * (max_num_nodes + 1) // 2
         self.vae = model.MLP_VAE_plain(hidden_dim, latent_dim, output_dim)
@@ -119,8 +118,11 @@ class GraphVAE(nn.Module):
 
     def forward(self, input_features, adj):
         x = input_features.permute(0, 2, 1)  # Change to [batch_size, num_features, sequence_length]
+        #normalize
         x = self.bn1(x)
         x = x.permute(0, 2, 1)  # Change to [batch_size, sequence_length, num_features]
+
+        # graph neural network
         x = self.conv1(x, adj)
         x = self.act(x)
         x = self.conv2(x, adj)
@@ -128,7 +130,7 @@ class GraphVAE(nn.Module):
         # pool over all nodes 
         graph_h = self.pool_graph(x)
         # graph_h = input_features.view(-1, self.max_num_nodes * self.max_num_nodes)
-        # vae
+        # vae (Latent data is here)
         h_decode, z_mu, z_lsgms = self.vae(graph_h)
         out = F.sigmoid(h_decode)
         out_tensor = out.cpu().data
@@ -142,7 +144,7 @@ class GraphVAE(nn.Module):
         adj_data = adj.cpu().data[0]
         adj_features = torch.sum(adj_data, 1)
 
-        # fix this
+        # TODO: fix this
         S = self.edge_similarity_matrix(adj_data, recon_adj_tensor, adj_features, out_features,
                 self.deg_feature_similarity)
         
@@ -153,7 +155,7 @@ class GraphVAE(nn.Module):
         init_assignment = torch.ones(self.max_num_nodes, self.max_num_nodes) * init_corr
         #init_assignment = torch.FloatTensor(4, 4)
         #init.uniform(init_assignment)
-        # fix this
+        # TODO: fix this
         assignment = self.mpm(init_assignment, S)
         #print('Assignment: ', assignment)
 

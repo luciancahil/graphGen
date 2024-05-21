@@ -97,7 +97,8 @@ def main():
 
     if prog_args.dataset == 'enzymes':
         graphs= data.Graph_load_batch(min_num_nodes=10, name='ENZYMES')
-        print("Here3")
+        print(graphs)
+        1/0
         num_graphs_raw = len(graphs)
     elif prog_args.dataset == 'grid':
         graphs = []
